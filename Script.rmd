@@ -1,0 +1,201 @@
+---
+title: "Casino"
+author: "Aaron Mulvey"
+date: "10/16/2022"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  
+  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+The casino manager hired you as a consulting statistician. They would like to detect cheating players based
+on the number of wins. Cheating players will be approached by the security personnel and politely asked to
+leave the casino. Those players are then stored in a database. The image processing system of the casino will
+automatically detect those player if they should ever try to enter the casino again. Security personnel will
+prevent those players from entering the casino.
+The casino manager asked you to develop a decision rule with the following constraints and trade offs:
+
+Let a player play 100 times (you can assume that plays are independent)
+Make a decision rule based on these 100 plays
+The decision rule should detect cheating players with a probability of 80% (or as close as possible to
+80% but not below)
+
+Develop your decision rule using hypothesis testing. Follow these steps:
+
+a) What distribution can you use to model the number of wins in 100 plays? [10 points]
+
+Each game has two possible outcomes win or lose, the winning probability for a normal player is of 1/37 and the wining probability for the cheater is of is of 1/20 so each game is a Bernoulli trial, as we are looking at 100 games and assuming that each game is independent the distribution is Binomial.
+
+Distribution for normal player:
+
+$$P_{player}(X = k) = \binom{100}{k}\frac{1^k}{37^k}\frac{36^{100-k}}{37^{100-k}}$$
+$$X_{player}∼Binom(100, \frac{1}{37})$$
+Distribution for cheater player:
+
+$$P_{cheater}(X = k) = \binom{100}{k}\frac{1^k}{20^k}\frac{19^{100-k}}{20^{100-k}}$$
+$$X_{cheater}∼Binom(100, \frac{1}{20})$$
+b) What is the null hypothesis and its distribution (take fair players as the null)? [10 points]
+
+The null hypothesis is that there are not cheaters so the distribution will be:
+
+$$X_{cheater}∼Binom(100, \frac{1}{20})$$
+c) What is the alternative hypothesis and its distribution (take cheaters as the alternative)? [10 points]
+
+The alternative hypothesis is that there are cheaters in the casino so the distribution will be:
+
+$$X_{player}∼Binom(100, \frac{1}{37})$$
+d) What does the 80% correspond in the terminology of hypothesis testing? [10 points]
+
+Type of error II is accepting the null Hypothesis when it is false, in this case would be accepting the player is fair when is not.
+The probability of type error II is defined by $\beta$ in this case the 20% and finally the 80% corresponds to the power test, that's it probability of player is fair is rejected when is false $1 - \beta.$
+
+e) What is the decision rule that you propose? [20 points]
+
+
+```{r}
+
+hypotesis <- function(n, prob){
+  k <- seq(1,n)
+  return(dbinom(k, games, prob))
+}
+
+likelihoodRatio <- function(H0, H1){
+  
+  likelihoodRatio <- P0/P1
+  x <- seq(1, length(likelihoodRatio))
+  
+  plot(x, likelihoodRatio, 
+     type = "p",
+     col = 4,
+     ylab = "Likelihood Ratio",
+     xlab = "Games")
+  lines(x, likelihoodRatio,
+     col = 2)
+  
+  return(likelihoodRatio)
+}
+
+powerTest <- function(c, likelihoodRatio, H1){
+  
+  beta <- 0
+  x <-length(likelihoodRatio)
+  
+  for (i in  1:x) {
+     if (likelihoodRatio[i] > c) {
+       beta = beta + H1[i]
+     }
+  }
+  
+  return(1 - beta)
+}
+
+rule <- function(prob, maxC, likelihoodRatio, H1, alphaBeta){
+  c <- seq(0, maxC, by=0.01)
+  probability <- c()
+  bigProb <- 0
+  result <- c()
+  
+  for (i in 1:length(c)) {
+    probability[i] <- powerTest(c[i], likelihoodRatio, H1)
+  }
+  
+  for (i in 1:length(c)) {
+    
+      if(probability[i] > prob){
+          bigProb <-i
+          break
+        }
+  }
+  
+  result[1] <- probability[bigProb]
+  result[2] <- c[bigProb]
+  result[3] <- round(result[2])
+  
+  return(result)
+}
+
+```
+
+We want a ratio of the probabilities of the two events in other words a likelihood ratio.
+
+```{r}
+
+games <- 100
+player <- 1/37
+scammer <- 1/20
+
+P0 = hypotesis(games, player)
+P1 = hypotesis(games, scammer)
+
+ratio <- likelihoodRatio(P0,P1)
+
+
+```
+
+Then I use the decision rule that I create using the power test and aplaying 80% 
+```{r}
+
+rul <- rule(0.8, max(ratio), ratio, P1)
+
+print(paste("Probability is ", rul[1]))
+print(paste("Decision rule is X >= ", rul[3]))
+```
+
+
+f) What is the probability of calling a player a cheater who is in fact not cheating (and just got lucky)
+called in the terminology of hypothesis testing? [10 points]
+
+Probability of error type I, that's it reject the null hypothesis when is true.
+
+
+g) What is the probability of f) in your proposed decision rule? [10 points]
+
+```{r}
+
+alpha <- function(rule, ratio, H0){
+  
+  alpha <- 0
+  
+  for (i in 1:length(H0)) {
+     
+    if(ratio[i] < rule){
+        
+      alpha = alpha + H0[i]
+    }
+  }
+  
+  return(alpha)
+}
+
+
+print(paste("Probability of error type I is", alpha(rul[3], ratio, P0)))
+
+
+
+```
+
+After you developed the system, the manager realizes that too many honest players are being flagged as
+cheaters.
+
+h) What do you have to change in your decision rule to solve this problem? [10 points]
+
+I will decrease the probability of detecting cheaters and i see that my error type 1 decreases.
+```{r}
+rulas <- rule(0.3, max(ratio), ratio, P1)
+
+print(paste("Probability of error type I now is", alpha(rulas[2], ratio, P0)))
+
+```
+
+i) How does this affect the probabilities of the two types of errors (use the terminology of hypothesis
+testing)? [10 points]
+
+Now the casino wont detect as many cheaters as before but the casino will reduce the error type I so the players that are honest will not be flagged as cheaters.
+
+
